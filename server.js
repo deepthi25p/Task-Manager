@@ -47,24 +47,53 @@ const Task = mongoose.model("Task", taskSchema);
 // ================= ROUTES =================
 
 // Register
-app.post("/register", async (req, res) => {
-  const { name, email, password } = req.body;
+// Register + Auto Login
+app.post("/api/register", async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
 
-  if (!email || !password) {
-    return res.json({ message: "Email and password required" });
+    // Validate input
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: "All fields required" });
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: "Email already registered" });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const user = await User.create({
+      name,
+      email,
+      password: hashedPassword
+    });
+
+    const token = jwt.sign(
+      { userId: user._id },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.json({
+      token: token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email
+      }
+    });
+  } catch (err) {
+    console.error("Register error:", err);
+    res.status(500).json({ message: "Registration failed" });
   }
-
-  const existing = await User.findOne({ email });
-  if (existing) {
-    return res.status(400).json({ message: "User already exists" });
-  }
-
-  const hashed = await bcrypt.hash(password, 10);
-  const user = new User({ name, email, password: hashed });
-  await user.save();
-
-  res.json({ message: "Registered successfully" });
 });
+
+
+
 
 // Login
 app.post("/login", async (req, res) => {

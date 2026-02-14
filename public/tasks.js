@@ -4,12 +4,14 @@ if (!localStorage.getItem("token")) {
   window.location.href = "index.html";
 }
 
-const name = localStorage.getItem("name");
-if (name) {
-  document.getElementById("greeting").innerText = `Hello, ${name} 👋`;
+const userName = localStorage.getItem("name");
+
+if (userName && userName !== "undefined") {
+  document.getElementById("greeting").innerText = `Hello, ${userName} 👋`;
 } else {
   document.getElementById("greeting").innerText = "Hello 👋";
 }
+
 
 function authHeaders() {
   const token = localStorage.getItem("token");
