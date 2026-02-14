@@ -36,3 +36,37 @@ async function login() {
     alert("Server error");
   }
 }
+async function register() {
+  const name = document.getElementById("regName").value;
+  const email = document.getElementById("regEmail").value;
+  const password = document.getElementById("regPassword").value;
+
+  if (!email || !password) {
+    alert("Please fill all fields");
+    return;
+  }
+
+  try {
+    const res = await fetch(API + "/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, email, password })
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+      alert("Registered successfully ✅");
+
+      // 👉 Redirect to login or tasks page
+      window.location.href = "tasks.html";  
+      // or: window.location.href = "login.html";
+    } else {
+      alert(data.message || "Registration failed ❌");
+    }
+  } catch (err) {
+    console.error(err);
+    alert("Server error ❌");
+  }
+}
+
