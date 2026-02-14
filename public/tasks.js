@@ -1,39 +1,41 @@
 const API = "http://localhost:5000";
 
-async function loadUser() {
-  const userId = localStorage.getItem("userId");
-
-  if (!userId) {
-    // Not logged in → go back to login
-    window.location.href = "index.html";
-    return;
-  }
-
-  const res = await fetch(API + "/users/" + userId);
-  const data = await res.json();
-
-  if (data.name) {
-    document.getElementById("greeting").innerText = `Hello, ${data.name} 👋`;
-  } else {
-    document.getElementById("greeting").innerText = "Hello 👋";
-  }
-
+if (!localStorage.getItem("token")) {
+  window.location.href = "index.html";
 }
+
+const name = localStorage.getItem("name");
+if (name) {
+  document.getElementById("greeting").innerText = `Hello, ${name} 👋`;
+} else {
+  document.getElementById("greeting").innerText = "Hello 👋";
+}
+
+function authHeaders() {
+  const token = localStorage.getItem("token");
+  return {
+    "Content-Type": "application/json",
+    "Authorization": "Bearer " + token
+  };
+}
+
+
 window.onload = () => {
-  loadUser();
   loadTasks();
 };
 
-
 // ================= LOAD TASKS =================
 async function loadTasks() {
-  const userId = localStorage.getItem("userId");
-  if (!userId) {
-    window.location.href = "index.html";
+  const res = await fetch(API + "/tasks", {
+  headers: authHeaders()
+});
+
+
+  if (res.status === 401) {
+    logout();
     return;
   }
 
-  const res = await fetch(API + "/tasks/" + userId);
   const tasks = await res.json();
 
   const list = document.getElementById("taskList");
@@ -48,14 +50,13 @@ async function loadTasks() {
 async function addTask() {
   const input = document.getElementById("taskInput");
   const taskText = input.value.trim();
-  const userId = localStorage.getItem("userId");
 
   if (!taskText) return;
 
   const res = await fetch(API + "/tasks", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text: taskText, userId })
+    headers: authHeaders(),
+    body: JSON.stringify({ text: taskText })
   });
 
   const task = await res.json();
@@ -80,7 +81,7 @@ function renderTask(task) {
       </button>
       <button onclick="startEdit(this)">✏️</button>
       <button onclick="saveEdit(this, '${task._id}')">💾</button>
-      <button onclick="deleteTask('${task._id}', this)">✖</button>
+      <button onclick="deleteTask('${task._id}', this)">🗑️</button>
     </div>
   `;
 
@@ -89,60 +90,32 @@ function renderTask(task) {
 
 // ================= DELETE TASK =================
 async function deleteTask(taskId, btn) {
-  const userId = localStorage.getItem("userId");
-
   const res = await fetch(API + "/tasks/" + taskId, {
     method: "DELETE",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId })
+    headers: authHeaders()
   });
 
   const data = await res.json();
 
   if (data.message === "Deleted") {
-    // Remove from UI immediately
     const li = btn.closest("li");
-    li.remove();
+    li.remove(); 
   } else {
     alert("Failed to delete task");
   }
 }
 
-
-// ================= LOGOUT =================
-function logout() {
-  localStorage.removeItem("userId");
-  window.location.href = "index.html";
-}
-
 async function toggleComplete(taskId, currentStatus) {
-  const userId = localStorage.getItem("userId");
-
   await fetch(API + "/tasks/" + taskId, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ completed: !currentStatus, userId })
-  });
-
-  loadTasks(); // reload list from DB
-}
-
-async function editTask(taskId, oldText) {
-  const newText = prompt("Edit task:", oldText);
-  if (!newText) return;
-
-  const userId = localStorage.getItem("userId");
-
-  await fetch(API + "/tasks/" + taskId, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text: newText, userId })
+    headers: authHeaders(),
+    body: JSON.stringify({ completed: !currentStatus })
   });
 
   loadTasks(); // refresh list
 }
 
-
+// ================= EDIT =================
 function startEdit(btn) {
   const li = btn.closest("li");
   li.querySelector(".task-text").style.display = "none";
@@ -153,18 +126,23 @@ async function saveEdit(btn, taskId) {
   const li = btn.closest("li");
   const input = li.querySelector(".edit-input");
   const newText = input.value.trim();
-  const userId = localStorage.getItem("userId");
 
   if (!newText) return;
 
   await fetch(API + "/tasks/" + taskId, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text: newText, userId })
+    headers: authHeaders(),
+    body: JSON.stringify({ text: newText })
   });
 
-  // Update UI immediately
   li.querySelector(".task-text").innerText = newText;
   li.querySelector(".task-text").style.display = "inline";
   input.style.display = "none";
+}
+
+// ================= LOGOUT =================
+function logout() {
+  localStorage.removeItem("token");
+  localStorage.removeItem("name");
+  window.location.href = "index.html";
 }

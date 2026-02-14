@@ -1,26 +1,76 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html>
 <head>
     <title>Login</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>Custom DayList</h1>
+    <header class="navbar">
+        <h1>Custom DayList</h1>
+     </header>
+    
 <div class="card">
     <h2>Register</h2>
     <input type="text" id="regName" placeholder="Name">
     <input type="email" id="regEmail" placeholder="Email">
     <input type="password" id="regPassword" placeholder="Password">
-    <button onclick="register()">Register</button>
+    <button onclick="register()" type="button">Register</button>
 
     <h2>Login</h2>
-    <input type="email" id="logEmail" placeholder="Email">
-    <input type="password" id="logPassword" placeholder="Password">
-    <button onclick="login()">Login</button>
+    <input type="email" id="email" placeholder="Email">
+    <input type="password" id="password" placeholder="Password">
+    <button type="button" onclick="login()">Login</button>
 
     <p id="message"></p>
 </div>
 
 <script src="script.js"></script>
+</body>
+</html> -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login · TaskNest</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Navbar -->
+  <header class="navbar">
+    <h1 id="greeting">TaskNest 📝</h1>
+  </header>
+
+  <!-- Auth Container -->
+  <div class="auth-container">
+
+    <!-- Register -->
+    <div class="auth-card">
+      <h2>Register</h2>
+      <input type="text" id="regName" placeholder="Name">
+      <input type="email" id="regEmail" placeholder="Email">
+      <input type="password" id="regPassword" placeholder="Password">
+      <button onclick="register()" type="button">
+        <i class="fas fa-user-plus"></i> Create Account
+      </button>
+    </div>
+
+    <!-- Login -->
+    <div class="auth-card">
+      <h2>Login</h2>
+      <input type="email" id="email" placeholder="Email">
+      <input type="password" id="password" placeholder="Password">
+      <button type="button" onclick="login()">
+        <i class="fas fa-right-to-bracket"></i> Login
+      </button>
+    </div>
+
+  </div>
+
+  <p id="message"></p>
+
+  <script src="script.js"></script>
 </body>
 </html>

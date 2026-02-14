@@ -3,6 +3,9 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+
+const auth = require("./middleware/auth");
 
 const app = express();
 
@@ -12,133 +15,111 @@ app.use(express.json());
 app.use(express.static("public"));
 
 // ================= MONGODB =================
-mongoose.connect(process.env.MONGO_URI)
-.then(() => {
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => {
     console.log("MongoDB connected");
     const PORT = process.env.PORT || 5000;
     app.listen(PORT, () => {
-        console.log(`Server running on http://localhost:${PORT}`);
+      console.log(`Server running on http://localhost:${PORT}`);
     });
-})
-.catch(err => console.log("MongoDB error:", err));
+  })
+  .catch((err) => console.log("MongoDB error:", err));
 
 // ================= MODELS =================
 
 // User schema
 const userSchema = new mongoose.Schema({
-    name: String,
-    email: { type: String, unique: true },
-    password: String
+  name: String,
+  email: { type: String, unique: true },
+  password: String,
 });
 const User = mongoose.model("User", userSchema);
 
 // Task schema
 const taskSchema = new mongoose.Schema({
-    text: String,
-    completed: { type: Boolean, default: false },
-    userId: String
+  text: String,
+  completed: { type: Boolean, default: false },
+  userId: String,
 });
 const Task = mongoose.model("Task", taskSchema);
 
 // ================= ROUTES =================
 
-// Register OR auto-login if exists
+// Register
 app.post("/register", async (req, res) => {
-    const { name, email, password } = req.body;
+  const { name, email, password } = req.body;
 
-    if (!email || !password) {
-        return res.json({ message: "Email and password required" });
-    }
+  if (!email || !password) {
+    return res.json({ message: "Email and password required" });
+  }
 
-    const existing = await User.findOne({ email });
+  const existing = await User.findOne({ email });
+  if (existing) {
+    return res.status(400).json({ message: "User already exists" });
+  }
 
-    // User already exists
-    if (existing) {
-        if (!existing.password) {
-            return res.json({ message: "User exists but password missing" });
-        }
+  const hashed = await bcrypt.hash(password, 10);
+  const user = new User({ name, email, password: hashed });
+  await user.save();
 
-        const match = await bcrypt.compare(password, existing.password);
-        if (match) {
-            return res.json({
-                message: "Login successful",
-                userId: existing._id
-            });
-        } else {
-            return res.json({
-                message: "User already exists. Wrong password."
-            });
-        }
-    }
-
-    // New user
-    const hashed = await bcrypt.hash(password, 10);
-    const user = new User({ name, email, password: hashed });
-    await user.save();
-
-    res.json({
-        message: "Registered successfully",
-        userId: user._id
-    });
+  res.json({ message: "Registered successfully" });
 });
 
 // Login
 app.post("/login", async (req, res) => {
-    const { email, password } = req.body;
+  const { email, password } = req.body;
 
-    const user = await User.findOne({ email });
-    if (!user) return res.json({ message: "User not found" });
+  const user = await User.findOne({ email });
+  if (!user) return res.status(400).json({ message: "Invalid credentials" });
 
-    if (!user.password) {
-        return res.json({ message: "Password missing. Re-register." });
-    }
+  const match = await bcrypt.compare(password, user.password);
+  if (!match) return res.status(400).json({ message: "Invalid credentials" });
 
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.json({ message: "Wrong password" });
+  const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+    expiresIn: "1d",
+  });
 
-    res.json({
-        message: "Login successful",
-        userId: user._id
-    });
+  res.json({
+    message: "Login successful",
+    token,
+    userId: user._id,
+    name: user.name,
+  });
+});
+
+
+// Get tasks
+app.get("/tasks", auth, async (req, res) => {
+  const tasks = await Task.find({ userId: req.user.userId });
+  res.json(tasks);
 });
 
 // Add task
-app.post("/tasks", async (req, res) => {
-    const { text, userId } = req.body;
-    const task = new Task({ text, userId });
-    await task.save();
-    res.json(task);
-});
+app.post("/tasks", auth, async (req, res) => {
+  const { text } = req.body;
 
-// Get tasks
-app.get("/tasks/:userId", async (req, res) => {
-    const tasks = await Task.find({ userId: req.params.userId });
-    res.json(tasks);
-});
-
-// Delete task
-app.delete("/tasks/:id", async (req, res) => {
-  const { userId } = req.body;
-
-  const task = await Task.findById(req.params.id);
-  if (!task) return res.status(404).json({ message: "Task not found" });
-
-  if (task.userId !== userId) {
-    return res.status(403).json({ message: "Not allowed" });
+  if (!text) {
+    return res.status(400).json({ message: "Task text required" });
   }
 
-  await Task.findByIdAndDelete(req.params.id);
-  res.json({ message: "Deleted" });
+  const task = new Task({
+    text,
+    userId: req.user.userId,
+  });
+
+  await task.save();
+  res.json(task);
 });
 
-// Update task (toggle completed or edit text)
-app.put("/tasks/:id", async (req, res) => {
-  const { text, completed, userId } = req.body;
+// Update task
+app.put("/tasks/:id", auth, async (req, res) => {
+  const { text, completed } = req.body;
 
-  // 🔐 Ownership check (Feature 3 also starts here)
   const task = await Task.findById(req.params.id);
   if (!task) return res.status(404).json({ message: "Task not found" });
-  if (task.userId !== userId) {
+
+  if (task.userId !== req.user.userId) {
     return res.status(403).json({ message: "Not allowed" });
   }
 
@@ -149,19 +130,15 @@ app.put("/tasks/:id", async (req, res) => {
   res.json(task);
 });
 
-app.get("/users/:id", async (req, res) => {
-  try {
-    const userId = req.params.id;
+// Delete task
+app.delete("/tasks/:id", auth, async (req, res) => {
+  const task = await Task.findById(req.params.id);
+  if (!task) return res.status(404).json({ message: "Task not found" });
 
-    const user = await User.findById(userId).select("name"); // ✅ correct field
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    res.json({ name: user.name }); // ✅ send name
-  } catch (err) {
-    res.status(500).json({ message: "Server error" });
+  if (task.userId !== req.user.userId) {
+    return res.status(403).json({ message: "Not allowed" });
   }
-});
 
+  await Task.findByIdAndDelete(req.params.id);
+  res.json({ message: "Deleted" });
+});
