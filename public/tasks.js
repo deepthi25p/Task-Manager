@@ -1,4 +1,4 @@
-const API = "http://localhost:5000";
+const API = "https://task-manager-tpnf.onrender.com";
 
 if (!localStorage.getItem("token")) {
   window.location.href = "index.html";
