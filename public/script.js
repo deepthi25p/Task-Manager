@@ -1,4 +1,4 @@
-const API = "http://localhost:5000";
+const API = "https://task-manager-tpnf.onrender.com";
 
 // ================= LOGIN =================
 async function login() {
